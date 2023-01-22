@@ -27,7 +27,7 @@
   // @includes
   #include <string.h>                     // memset function
   #include "font.h"
-  #include "twi.h"
+  // #include "twi.h"
 
   // Success / Error
   // ------------------------------------------------------------------------------------
@@ -80,7 +80,7 @@
 
   // AREA definition
   // ------------------------------------------------------------------------------------
-  #define START_PAGE_ADDR           0
+  #define START_PAGE_ADDR           4
   #define END_PAGE_ADDR             7     // 7 for 128x64, 3 for 128x32 version
   #define START_COLUMN_ADDR         0
   #define END_COLUMN_ADDR           127
@@ -93,7 +93,7 @@
   #define MAX_Y                     (END_PAGE_ADDR + 1) * 8
 
   // @var set area
-  unsigned int _counter;
+  // unsigned int _counter;
 
   /**
    * @desc    SSD1306 Init

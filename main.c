@@ -1,3 +1,6 @@
+typedef unsigned char uint8_t;
+#define PROGMEM 
+
 /** 
  * --------------------------------------------------------------------------------------+  
  * @desc        OLED SSD1306 example
@@ -22,6 +25,7 @@
 
 // include libraries
 #include "lib/ssd1306.h"
+#include <unistd.h>
 
 /**
  * @desc    Main function
@@ -37,26 +41,21 @@ int main(void)
   // init ssd1306
   SSD1306_Init (addr);
 
-  // clear screen
-  SSD1306_ClearScreen ();
-  // draw line
-  SSD1306_DrawLine (0, MAX_X, 4, 4);
-  // set position
-  SSD1306_SetPosition (7, 1);
-  // draw string
-  SSD1306_DrawString ("SSD1306 OLED DRIVER");
-  // draw line
-  SSD1306_DrawLine (0, MAX_X, 18, 18);
-  // set position
-  SSD1306_SetPosition (40, 3);
-  // draw string
-  SSD1306_DrawString ("MATIASUS");
-  // set position
-  SSD1306_SetPosition (53, 5);
-  // draw string
-  SSD1306_DrawString ("2021");
-  // update
-  SSD1306_UpdateScreen (addr);
+  while (1) {
+    SSD1306_ClearScreen ();
+    SSD1306_SetPosition (4,4);
+    SSD1306_DrawString ("Szia Edit,Anyu,Reka");
+    SSD1306_SetPosition (10,6);
+    SSD1306_DrawString ("Mano,Lujzi,Liza!");
+    SSD1306_UpdateScreen (addr);
+    usleep(1000000);
+
+    SSD1306_ClearScreen ();
+    SSD1306_SetPosition (4,4);
+    SSD1306_DrawString ("Mit csinalunk ma?");
+    SSD1306_UpdateScreen (addr);
+    usleep(1000000);
+  }
 
   // return value
   return 0;

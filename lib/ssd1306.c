@@ -1,3 +1,8 @@
+#define pgm_read_byte *
+typedef unsigned char uint8_t;
+#define PROGMEM
+unsigned int _counter;
+
 /**
  * --------------------------------------------------------------------------------------+
  * @desc        SSD1306 OLED Driver
@@ -23,6 +28,17 @@
  
 // @includes
 #include "ssd1306.h"
+
+#include <fcntl.h>
+#include <linux/i2c.h>
+#include <linux/i2c-dev.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <sys/ioctl.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h> 
 
 // +---------------------------+
 // |      Set MUX Ratio        |
@@ -115,7 +131,7 @@ const uint8_t INIT_SSD1306[] PROGMEM = {
   1, SSD1306_DISPLAY_OFFSET, 0x00,                                // 0xD3
   0, SSD1306_SEG_REMAP_OP,                                        // 0xA0 / remap 0xA1
   0, SSD1306_COM_SCAN_DIR_OP,                                     // 0xC0 / remap 0xC8
-  1, SSD1306_COM_PIN_CONF, 0x12,                                  // 0xDA, 0x12 - Disable COM Left/Right remap, Alternative COM pin configuration
+  1, SSD1306_COM_PIN_CONF, 0x02, /* 0x12 */                       // 0xDA, 0x12 - Disable COM Left/Right remap, Alternative COM pin configuration
                                                                   //       0x12 - for 128 x 64 version
                                                                   //       0x02 - for 128 x 32 version
   1, SSD1306_SET_CONTRAST, 0x7F,                                  // 0x81, 0x7F - reset value (max 0xFF)
@@ -131,6 +147,8 @@ const uint8_t INIT_SSD1306[] PROGMEM = {
 
 // @var array Chache memory Lcd 8 * 128 = 1024
 static char cacheMemLcd[CACHE_SIZE_MEM];
+
+static int fd = -1;
 
 /**
  * @desc    SSD1306 Init
@@ -152,17 +170,11 @@ uint8_t SSD1306_Init (uint8_t address)
   // init status
   uint8_t status = INIT_STATUS;
 
-  // TWI: Init
-  // -------------------------------------------------------------------------------------
-  TWI_Init ();
-
-  // TWI: start & SLAW
-  // -------------------------------------------------------------------------------------
-  status = SSD1306_Send_StartAndSLAW (address);
-  // request - start TWI
-  if (SSD1306_SUCCESS != status) {
-    // error
-    return status;
+  fd = open("/dev/i2c-1", O_RDWR);
+  if (fd == -1)
+  {
+    perror("could not open /dev/i2c-1");
+    return -1;
   }
 
   // loop through commands
@@ -174,7 +186,7 @@ uint8_t SSD1306_Init (uint8_t address)
     command = pgm_read_byte (commands++);
 
     // send command
-  // -------------------------------------------------------------------------------------
+    // -------------------------------------------------------------------------------------
     status = SSD1306_Send_Command (command);
     // request - start TWI
     if (SSD1306_SUCCESS != status) {
@@ -197,10 +209,6 @@ uint8_t SSD1306_Init (uint8_t address)
     no_of_commands--;
   }
 
-  // TWI: Stop
-  // -------------------------------------------------------------------------------------
-  TWI_Stop ();
-
   // success
   return SSD1306_SUCCESS;
 }
@@ -214,27 +222,6 @@ uint8_t SSD1306_Init (uint8_t address)
  */
 uint8_t SSD1306_Send_StartAndSLAW (uint8_t address)
 {
-  // init status
-  uint8_t status = INIT_STATUS;
-
-  // TWI: start
-  // -------------------------------------------------------------------------------------
-  status = TWI_MT_Start ();
-  // request - start TWI
-  if (SSD1306_SUCCESS != status) {
-    // error
-    return status;
-  }
-
-  // TWI: send SLAW
-  // -------------------------------------------------------------------------------------
-  status = TWI_MT_Send_SLAW (address);
-  // request - send SLAW
-  if (SSD1306_SUCCESS != status) {
-    // error
-    return status;
-  }
-
   // success
   return SSD1306_SUCCESS;
 }
@@ -248,25 +235,16 @@ uint8_t SSD1306_Send_StartAndSLAW (uint8_t address)
  */
 uint8_t SSD1306_Send_Command (uint8_t command)
 {
-  // init status
-  uint8_t status = INIT_STATUS;
+  uint8_t cmd[] = {
+    SSD1306_COMMAND, command };
 
-  // send control byte
-  // -------------------------------------------------------------------------------------   
-  status = TWI_MT_Send_Data (SSD1306_COMMAND);
-  // request - start TWI
-  if (SSD1306_SUCCESS != status) {
-    // error
-    return status;
-  }
-
-  // send command
-  // -------------------------------------------------------------------------------------   
-  status = TWI_MT_Send_Data (command);
-  // request - start TWI
-  if (SSD1306_SUCCESS != status) {
-    // error
-    return status;
+  struct i2c_msg message = { SSD1306_ADDR, 0, sizeof(cmd), cmd };
+  struct i2c_rdwr_ioctl_data ioctl_data = { &message, 1 };
+  int result = ioctl(fd, I2C_RDWR, &ioctl_data);
+  if (result != 1)
+  {
+    perror("failed to set target");
+    return -1;
   }
 
   // success
@@ -282,21 +260,9 @@ uint8_t SSD1306_Send_Command (uint8_t command)
  */
 uint8_t SSD1306_NormalScreen (uint8_t address)
 {
-  // init status
-  uint8_t status = INIT_STATUS;
-
-  // TWI: start & SLAW
-  // -------------------------------------------------------------------------------------
-  status = SSD1306_Send_StartAndSLAW (address);
-  // request succesfull
-  if (SSD1306_SUCCESS != status) {
-    // error
-    return status;
-  }
-
   // send command
   // -------------------------------------------------------------------------------------   
-  status = SSD1306_Send_Command (SSD1306_DIS_NORMAL);
+  uint8_t status = SSD1306_Send_Command (SSD1306_DIS_NORMAL);
   // request succesfull
   if (SSD1306_SUCCESS != status) {
     // error
@@ -316,21 +282,9 @@ uint8_t SSD1306_NormalScreen (uint8_t address)
  */
 uint8_t SSD1306_InverseScreen (uint8_t address)
 {
-  // init status
-  uint8_t status = INIT_STATUS;
-
-  // TWI: start & SLAW
-  // -------------------------------------------------------------------------------------
-  status = SSD1306_Send_StartAndSLAW (address);
-  // request succesfull
-  if (SSD1306_SUCCESS != status) {
-    // error
-    return status;
-  }
-
   // send command
   // -------------------------------------------------------------------------------------   
-  status = SSD1306_Send_Command (SSD1306_DIS_INVERSE);
+  uint8_t status = SSD1306_Send_Command (SSD1306_DIS_INVERSE);
   // request succesfull
   if (SSD1306_SUCCESS != status) {
     // error
@@ -352,43 +306,19 @@ uint8_t SSD1306_UpdateScreen (uint8_t address)
 {
   // init status
   uint8_t status = INIT_STATUS;
-  // init i
-  uint16_t i = 0;
 
-  // TWI: start & SLAW
-  // -------------------------------------------------------------------------------------
-  status = SSD1306_Send_StartAndSLAW (address);
-  // request succesfull
-  if (SSD1306_SUCCESS != status) {
-    // error
-    return status;
+  uint8_t cmd[CACHE_SIZE_MEM+1] = {SSD1306_DATA_STREAM};
+  memcpy(cmd+1, cacheMemLcd, CACHE_SIZE_MEM);
+  // memset(cmd+1, 0xaa, CACHE_SIZE_MEM);
+
+  struct i2c_msg message = { SSD1306_ADDR, 0, sizeof(cmd), cmd };
+  struct i2c_rdwr_ioctl_data ioctl_data = { &message, 1 };
+  int result = ioctl(fd, I2C_RDWR, &ioctl_data);
+  if (result != 1)
+  {
+    perror("failed to set bitmap");
+    return -1;
   }
-
-  // control byte data stream
-  // -------------------------------------------------------------------------------------   
-  status = TWI_MT_Send_Data (SSD1306_DATA_STREAM);
-  // request succesfull
-  if (SSD1306_SUCCESS != status) {
-    // error
-    return status;
-  }
-
-  //  send cache memory lcd
-  // -------------------------------------------------------------------------------------
-  while (i < CACHE_SIZE_MEM) {
-    // send data
-    status = TWI_MT_Send_Data (cacheMemLcd[i]);
-    // request succesfull
-    if (SSD1306_SUCCESS != status) {
-      // error
-      return status;
-    }
-    // increment
-    i++;
-  }
-
-  // stop TWI
-  TWI_Stop ();
 
   // success
   return SSD1306_SUCCESS;
@@ -465,7 +395,24 @@ uint8_t SSD1306_UpdatePosition (void)
 uint8_t SSD1306_DrawChar (char character)
 {
   // variables
-  uint8_t i = 0;
+  int i=0;
+  const uint8_t map[] = {0x00, // 0000 0000 
+                         0x03, // 0000 0011
+                         0x0c, // 0000 1100
+                         0x0f, // 0000 1111
+                         0x30, // 0011 0000
+                         0x33, // 0011 0011
+                         0x3c, // 0011 1100
+                         0x3f, // 0011 1111
+                         0xc0, // 1100 0000 
+                         0xc3, // 1100 0011
+                         0xcc, // 1100 1100
+                         0xcf, // 1100 1111
+                         0xf0, // 1111 0000
+                         0xf3, // 1111 0011
+                         0xfc, // 1111 1100
+                         0xff, // 1111 1111
+  };
 
   // update text position
   // this ensure that character will not be divided at the end of row, the whole character will be depicted on the new row
@@ -476,8 +423,13 @@ uint8_t SSD1306_DrawChar (char character)
 
   // loop through 5 bits
   while (i < CHARS_COLS_LENGTH) {
+    uint8_t data = pgm_read_byte(&FONTS[character-32][i++]);
+    uint8_t upper = map[data & 0x0f];
+    uint8_t lower = map[data >> 4];
     // read byte 
-    cacheMemLcd[_counter++] = pgm_read_byte(&FONTS[character-32][i++]);
+    cacheMemLcd[_counter] = upper;
+    cacheMemLcd[_counter+END_COLUMN_ADDR+1] = lower;
+    _counter++;
   }
 
   // update position

@@ -24,7 +24,7 @@
 #define __FONT_H__
 
   // includes
-  #include <avr/pgmspace.h>
+//  #include <avr/pgmspace.h>
 
   // Characters definition
   // -----------------------------------
