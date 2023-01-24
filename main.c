@@ -43,15 +43,15 @@ int main(void)
 
   while (1) {
     SSD1306_ClearScreen ();
-    SSD1306_SetPosition (4,4);
+    SSD1306_SetPosition (4,0);
     SSD1306_DrawString ("Szia Edit,Anyu,Reka");
-    SSD1306_SetPosition (10,6);
-    SSD1306_DrawString ("Mano,Lujzi,Liza!");
+    SSD1306_SetPosition (10,2);
+    SSD1306_DrawString ("Mano,Lujzi,Liza.");
     SSD1306_UpdateScreen (addr);
     usleep(1000000);
 
     SSD1306_ClearScreen ();
-    SSD1306_SetPosition (4,4);
+    SSD1306_SetPosition (4,6);
     SSD1306_DrawString ("Mit csinalunk ma?");
     SSD1306_UpdateScreen (addr);
     usleep(1000000);

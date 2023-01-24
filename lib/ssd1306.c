@@ -131,7 +131,7 @@ const uint8_t INIT_SSD1306[] PROGMEM = {
   1, SSD1306_DISPLAY_OFFSET, 0x00,                                // 0xD3
   0, SSD1306_SEG_REMAP_OP,                                        // 0xA0 / remap 0xA1
   0, SSD1306_COM_SCAN_DIR_OP,                                     // 0xC0 / remap 0xC8
-  1, SSD1306_COM_PIN_CONF, 0x02, /* 0x12 */                       // 0xDA, 0x12 - Disable COM Left/Right remap, Alternative COM pin configuration
+  1, SSD1306_COM_PIN_CONF, 0x12, /* 0x12 */                       // 0xDA, 0x12 - Disable COM Left/Right remap, Alternative COM pin configuration
                                                                   //       0x12 - for 128 x 64 version
                                                                   //       0x02 - for 128 x 32 version
   1, SSD1306_SET_CONTRAST, 0x7F,                                  // 0x81, 0x7F - reset value (max 0xFF)
@@ -424,11 +424,15 @@ uint8_t SSD1306_DrawChar (char character)
   // loop through 5 bits
   while (i < CHARS_COLS_LENGTH) {
     uint8_t data = pgm_read_byte(&FONTS[character-32][i++]);
+#if 1
     uint8_t upper = map[data & 0x0f];
     uint8_t lower = map[data >> 4];
     // read byte 
     cacheMemLcd[_counter] = upper;
     cacheMemLcd[_counter+END_COLUMN_ADDR+1] = lower;
+#else
+    cacheMemLcd[_counter] = data;
+#endif
     _counter++;
   }
 
