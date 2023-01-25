@@ -19,7 +19,7 @@
 #define __TWI_H__
 
   // @includes
-  #include <avr/io.h>
+//  #include <avr/io.h>
 
   // define register for TWI communication
   // -------------------------------------------------------------------------------------

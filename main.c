@@ -26,7 +26,12 @@ typedef unsigned char uint8_t;
 // include libraries
 #include "lib/ssd1306.h"
 #include <unistd.h>
+#include "electrical.h"
+#include "exclamation.h"
+#include "network.h"
 
+// extern const unsigned char bin2c_exclamation_bmp[510];
+// extern const unsigned char bin2c_electrical_bmp[510];
 /**
  * @desc    Main function
  *
@@ -43,16 +48,18 @@ int main(void)
 
   while (1) {
     SSD1306_ClearScreen ();
-    SSD1306_SetPosition (4,0);
-    SSD1306_DrawString ("Szia Edit,Anyu,Reka");
-    SSD1306_SetPosition (10,2);
-    SSD1306_DrawString ("Mano,Lujzi,Liza.");
+    //SSD1306_SetPosition (80,3);
+    //SSD1306_DrawString ("P S U");
+    SSD1306_InsertBitmap (0,0, bin2c_exclamation_bmp);
+    SSD1306_InsertBitmap (64,0, bin2c_electrical_bmp);
     SSD1306_UpdateScreen (addr);
     usleep(1000000);
 
     SSD1306_ClearScreen ();
-    SSD1306_SetPosition (4,6);
-    SSD1306_DrawString ("Mit csinalunk ma?");
+    //SSD1306_SetPosition (4,6);
+    //SSD1306_DrawString ("Mit csinalunk ma?");
+    SSD1306_InsertBitmap (0,0, bin2c_exclamation_bmp);
+    SSD1306_InsertBitmap (64,0, bin2c_network_bmp);
     SSD1306_UpdateScreen (addr);
     usleep(1000000);
   }

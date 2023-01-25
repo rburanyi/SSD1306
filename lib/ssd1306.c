@@ -3,6 +3,9 @@ typedef unsigned char uint8_t;
 #define PROGMEM
 unsigned int _counter;
 
+#define USE_I2C_DEVICE 0
+#define USE_I2CMINI 1
+
 /**
  * --------------------------------------------------------------------------------------+
  * @desc        SSD1306 OLED Driver
@@ -39,6 +42,12 @@ unsigned int _counter;
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h> 
+#include <arpa/inet.h>
+#include <stdlib.h>
+
+#if USE_I2CMINI
+  #include "i2cdriver.h"
+#endif
 
 // +---------------------------+
 // |      Set MUX Ratio        |
@@ -148,7 +157,13 @@ const uint8_t INIT_SSD1306[] PROGMEM = {
 // @var array Chache memory Lcd 8 * 128 = 1024
 static char cacheMemLcd[CACHE_SIZE_MEM];
 
-static int fd = -1;
+#if USE_I2C_DEVICE
+  static int fd = -1;
+#endif
+
+#if USE_I2CMINI
+  I2CDriver i2c;
+#endif
 
 /**
  * @desc    SSD1306 Init
@@ -170,12 +185,23 @@ uint8_t SSD1306_Init (uint8_t address)
   // init status
   uint8_t status = INIT_STATUS;
 
+#if USE_I2C_DEVICE 
   fd = open("/dev/i2c-1", O_RDWR);
   if (fd == -1)
   {
     perror("could not open /dev/i2c-1");
     return -1;
   }
+#endif
+
+#if USE_I2CMINI
+  i2c_connect(&i2c, "/dev/ttyUSB0");
+  if (!i2c.connected)
+  {
+    perror("could not open /dev/ttyUSB0");
+    return -1;
+  }
+#endif
 
   // loop through commands
   while (no_of_commands) {
@@ -235,6 +261,7 @@ uint8_t SSD1306_Send_StartAndSLAW (uint8_t address)
  */
 uint8_t SSD1306_Send_Command (uint8_t command)
 {
+#if USE_I2C_DEVICE
   uint8_t cmd[] = {
     SSD1306_COMMAND, command };
 
@@ -246,6 +273,16 @@ uint8_t SSD1306_Send_Command (uint8_t command)
     perror("failed to set target");
     return -1;
   }
+#endif
+
+#if USE_I2CMINI
+  uint8_t dev = SSD1306_ADDR;
+  uint8_t cmd[] = {
+    SSD1306_COMMAND, command };
+  i2c_start(&i2c, dev, 0);
+  i2c_write(&i2c, cmd, sizeof(cmd));
+  i2c_stop(&i2c);
+#endif 
 
   // success
   return SSD1306_SUCCESS;
@@ -304,12 +341,12 @@ uint8_t SSD1306_InverseScreen (uint8_t address)
  */
 uint8_t SSD1306_UpdateScreen (uint8_t address)
 {
+#if USE_I2C_DEVICE
   // init status
   uint8_t status = INIT_STATUS;
 
   uint8_t cmd[CACHE_SIZE_MEM+1] = {SSD1306_DATA_STREAM};
   memcpy(cmd+1, cacheMemLcd, CACHE_SIZE_MEM);
-  // memset(cmd+1, 0xaa, CACHE_SIZE_MEM);
 
   struct i2c_msg message = { SSD1306_ADDR, 0, sizeof(cmd), cmd };
   struct i2c_rdwr_ioctl_data ioctl_data = { &message, 1 };
@@ -319,7 +356,16 @@ uint8_t SSD1306_UpdateScreen (uint8_t address)
     perror("failed to set bitmap");
     return -1;
   }
+#endif
 
+#if USE_I2CMINI
+  uint8_t dev = SSD1306_ADDR;
+  uint8_t cmd[] = {SSD1306_DATA_STREAM};
+  i2c_start(&i2c, dev, 0);
+  i2c_write(&i2c, cmd, sizeof(cmd));
+  i2c_write(&i2c, cacheMemLcd, CACHE_SIZE_MEM);
+  i2c_stop(&i2c);
+#endif
   // success
   return SSD1306_SUCCESS;
 }
@@ -423,11 +469,11 @@ uint8_t SSD1306_DrawChar (char character)
 
   // loop through 5 bits
   while (i < CHARS_COLS_LENGTH) {
+    // read byte 
     uint8_t data = pgm_read_byte(&FONTS[character-32][i++]);
 #if 1
     uint8_t upper = map[data & 0x0f];
     uint8_t lower = map[data >> 4];
-    // read byte 
     cacheMemLcd[_counter] = upper;
     cacheMemLcd[_counter+END_COLUMN_ADDR+1] = lower;
 #else
@@ -580,3 +626,22 @@ uint8_t SSD1306_DrawLine (uint8_t x1, uint8_t x2, uint8_t y1, uint8_t y2)
   // success return
   return SSD1306_SUCCESS;
 }
+
+void SSD1306_InsertBitmap(int offsetx, int offsety, const char* bitmap)
+{
+  // insert a bitmap
+  int x,y;
+  uint32_t rows,cols;
+  memcpy(&cols, bitmap+18, 4);
+  memcpy(&rows, bitmap+22, 4);
+  // bitmap rows are 32-bit aligned.
+  int ccols = ((cols+31)/32)*32;
+  bitmap += 62;
+
+  for (y=0; y<rows; y++)
+    for (x=0; x<cols; x++) {
+      uint bit = (bitmap[(y*ccols+x)/8] >> (7 - (x%8))) & 1;
+      if (bit) SSD1306_DrawPixel(offsetx+x,offsety+rows - y);
+    }
+}
+

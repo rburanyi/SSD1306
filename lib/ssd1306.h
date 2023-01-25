@@ -216,5 +216,6 @@
    * @return  uint8_t
    */
   uint8_t SSD1306_DrawLine (uint8_t, uint8_t, uint8_t, uint8_t);
+  void SSD1306_InsertBitmap (int offsetx, int offsety, const char* bitmap);
 
 #endif
